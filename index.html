@@ -35,7 +35,7 @@
             background: var(--secondary);
             padding: 12px;
             border-radius: 8px;
-            margin-bottom: 25px;
+            margin-bottom: 20px;
         }
         .role-switcher label { font-size: 0.75rem; text-transform: uppercase; color: #94a3b8; display: block; margin-bottom: 5px; }
         .role-switcher select {
@@ -83,6 +83,8 @@
         .badge { padding: 4px 8px; border-radius: 20px; font-size: 0.75rem; font-weight: bold; }
         .badge-active { background: #dcfce7; color: #166534; }
         .badge-closed { background: #fee2e2; color: #991b1b; }
+        .badge-corrente { background: #dbeafe; color: #1e40af; }
+        .badge-poupanca { background: #d1fae5; color: #065f46; }
 
         /* Cartão de Débito Físico/Virtual */
         .debit-card {
@@ -92,6 +94,11 @@
             display: flex; flex-direction: column; justify-content: space-between;
             box-shadow: 0 10px 25px rgba(37, 99, 235, 0.3);
             position: relative; margin: 15px 0;
+            transition: background 0.3s;
+        }
+        .debit-card.poupanca-style {
+            background: linear-gradient(135deg, #064e3b 0%, #047857 60%, #10b981 100%);
+            box-shadow: 0 10px 25px rgba(16, 185, 129, 0.3);
         }
         .chip { width: 45px; height: 34px; background: linear-gradient(135deg, #fbbf24, #d97706); border-radius: 6px; }
         .card-number { font-size: 1.35rem; letter-spacing: 2px; font-family: monospace; margin: 15px 0; }
@@ -162,6 +169,13 @@
                     <h3>Abrir Nova Conta Bancária</h3>
                     <form onsubmit="openAccount(event)">
                         <div class="form-group">
+                            <label>Modalidade da Conta</label>
+                            <select id="accType" required>
+                                <option value="Corrente">Conta Corrente</option>
+                                <option value="Poupança">Conta Poupança (Rendimento 0,5% a.m.)</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
                             <label>Nome Completo do Titular</label>
                             <input type="text" id="accName" required placeholder="Ex: Maria Oliveira">
                         </div>
@@ -181,7 +195,7 @@
                     <h3>Contas Cadastradas</h3>
                     <table>
                         <thead>
-                            <tr><th>Conta</th><th>Titular</th><th>Saldo</th><th>Status</th><th>Ação</th></tr>
+                            <tr><th>Conta</th><th>Tipo</th><th>Titular</th><th>Saldo</th><th>Status</th><th>Ação</th></tr>
                         </thead>
                         <tbody id="accountsTable"></tbody>
                     </table>
@@ -196,6 +210,9 @@
                     <h3>Saldo Disponível</h3>
                     <div class="value" id="clientBalanceDisplay">R$ 0,00</div>
                     <p id="clientAccountInfo" style="font-size:0.85rem; color:#64748b; margin-top:5px;"></p>
+                    <button id="yieldBtn" class="btn btn-success" style="margin-top:12px; display:none; width:100%;" onclick="applySavingsYield()">
+                        📈 Aplicar Rendimento Poupança (+0,5%)
+                    </button>
                 </div>
                 <div class="card">
                     <h3>Realizar Depósito</h3>
@@ -230,7 +247,7 @@
                 <h3>Cartão de Débito Vinculado</h3>
                 <p style="margin-bottom:15px; color:#64748b;">Selecione uma conta ativa para visualizar ou imprimir o cartão de débito.</p>
                 
-                <div class="form-group" style="max-width: 350px;">
+                <div class="form-group" style="max-width: 380px;">
                     <label>Selecionar Conta</label>
                     <select id="cardAccountSelect" onchange="renderDebitCard()"></select>
                 </div>
@@ -239,7 +256,7 @@
                     <div class="debit-card" id="debitCardVisual">
                         <div style="display:flex; justify-content:space-between; align-items:center;">
                             <span style="font-weight:bold; font-size:1.1rem;">NexusBank</span>
-                            <span style="font-size:0.8rem; border:1px solid white; padding:2px 6px; border-radius:4px;">DÉBITO</span>
+                            <span id="cardTypeBadge" style="font-size:0.75rem; border:1px solid white; padding:2px 8px; border-radius:4px;">DÉBITO • CORRENTE</span>
                         </div>
                         <div class="chip"></div>
                         <div class="card-number" id="cardNumDisplay">0000 0000 0000 0000</div>
@@ -302,14 +319,27 @@
         // Estado inicial do Banco (Dados em Memória)
         let accounts = [
             {
-                id: '1001-9',
+                id: '1001-1',
+                type: 'Corrente',
                 name: 'Carlos Eduardo Silva',
                 cpf: '123.456.789-00',
                 balance: 4500.00,
                 status: 'Ativa',
                 card: { number: '4532 8910 2341 9981', exp: '11/31', cvv: '482' },
                 transactions: [
-                    { date: '13/11/2026 09:00', type: 'Depósito', desc: 'Abertura de Conta', amount: 4500.00 }
+                    { date: '13/11/2026 09:00', type: 'Depósito', desc: 'Abertura Conta Corrente', amount: 4500.00 }
+                ]
+            },
+            {
+                id: '2001-2',
+                type: 'Poupança',
+                name: 'Ana Beatriz Souza',
+                cpf: '987.654.321-11',
+                balance: 2000.00,
+                status: 'Ativa',
+                card: { number: '4532 7741 5520 1104', exp: '11/31', cvv: '719' },
+                transactions: [
+                    { date: '13/11/2026 10:15', type: 'Depósito', desc: 'Abertura Conta Poupança', amount: 2000.00 }
                 ]
             }
         ];
@@ -351,25 +381,33 @@
             document.getElementById('pageTitle').textContent = titles[sectionId];
         }
 
-        // Abrir Nova Conta + Gerar Cartão
+        // Abrir Nova Conta (Corrente ou Poupança) + Gerar Cartão
         function openAccount(e) {
             e.preventDefault();
+            const type = document.getElementById('accType').value;
             const name = document.getElementById('accName').value;
             const cpf = document.getElementById('accCpf').value;
             const initial = parseFloat(document.getElementById('accInitial').value);
 
-            const accNum = Math.floor(1000 + Math.random() * 9000) + '-' + Math.floor(Math.random() * 9);
+            const suffix = type === 'Corrente' ? '1' : '2';
+            const accNum = Math.floor(1000 + Math.random() * 9000) + '-' + suffix;
             const cardNum = '4532 ' + Array.from({length: 3}, () => Math.floor(1000 + Math.random() * 9000)).join(' ');
             const cvv = Math.floor(100 + Math.random() * 899).toString();
 
             const newAcc = {
                 id: accNum,
+                type,
                 name,
                 cpf,
                 balance: initial,
                 status: 'Ativa',
                 card: { number: cardNum, exp: '11/31', cvv },
-                transactions: initial > 0 ? [{ date: new Date().toLocaleString('pt-BR'), type: 'Depósito', desc: 'Depósito Inicial', amount: initial }] : []
+                transactions: initial > 0 ? [{
+                    date: new Date().toLocaleString('pt-BR'),
+                    type: 'Depósito',
+                    desc: `Depósito Inicial (${type})`,
+                    amount: initial
+                }] : []
             };
 
             accounts.push(newAcc);
@@ -379,7 +417,7 @@
             // Seleciona o cartão recém-criado e leva para a tela de impressão
             document.getElementById('cardAccountSelect').value = accNum;
             renderDebitCard();
-            alert(`Conta ${accNum} aberta com sucesso! Cartão de débito gerado.`);
+            alert(`Conta ${type} (${accNum}) aberta com sucesso! Cartão de débito gerado.`);
             showSection('cards', document.querySelectorAll('.nav-btn')[3]);
         }
 
@@ -410,11 +448,30 @@
             acc.transactions.unshift({
                 date: new Date().toLocaleString('pt-BR'),
                 type: type === 'deposit' ? 'Depósito' : 'Saque',
-                desc: type === 'deposit' ? 'Depósito em Terminal' : 'Saque em Conta',
+                desc: type === 'deposit' ? `Depósito em ${acc.type}` : `Saque em ${acc.type}`,
                 amount: type === 'deposit' ? amount : -amount
             });
 
             document.getElementById(inputId).value = '';
+            renderAll();
+        }
+
+        // Rendimento Mensal da Poupança (+0,5%)
+        function applySavingsYield() {
+            const accId = document.getElementById('activeClientSelect').value;
+            const acc = accounts.find(a => a.id === accId);
+            if (!acc || acc.type !== 'Poupança') return;
+            if (acc.balance <= 0) return alert('É necessário ter saldo positivo para gerar rendimento.');
+
+            const yieldAmount = acc.balance * 0.005;
+            acc.balance += yieldAmount;
+            acc.transactions.unshift({
+                date: new Date().toLocaleString('pt-BR'),
+                type: 'Rendimento',
+                desc: 'Rendimento Poupança (0,5% a.m.)',
+                amount: yieldAmount
+            });
+
             renderAll();
         }
 
@@ -439,6 +496,17 @@
             const acc = accounts.find(a => a.id === accId);
             if (!acc) return;
 
+            const cardVisual = document.getElementById('debitCardVisual');
+            const cardBadge = document.getElementById('cardTypeBadge');
+
+            if (acc.type === 'Poupança') {
+                cardVisual.classList.add('poupanca-style');
+                cardBadge.textContent = 'DÉBITO • POUPANÇA';
+            } else {
+                cardVisual.classList.remove('poupanca-style');
+                cardBadge.textContent = 'DÉBITO • CORRENTE';
+            }
+
             document.getElementById('cardNumDisplay').textContent = acc.card.number;
             document.getElementById('cardHolderDisplay').textContent = acc.name;
             document.getElementById('cardExpDisplay').textContent = acc.card.exp;
@@ -458,8 +526,9 @@
             cardSelect.innerHTML = '';
 
             accounts.filter(a => a.status === 'Ativa').forEach(acc => {
-                clientSelect.innerHTML += `<option value="${acc.id}">${acc.id} - ${acc.name}</option>`;
-                cardSelect.innerHTML += `<option value="${acc.id}">${acc.id} - ${acc.name}</option>`;
+                const label = `${acc.id} (${acc.type}) - ${acc.name}`;
+                clientSelect.innerHTML += `<option value="${acc.id}">${label}</option>`;
+                cardSelect.innerHTML += `<option value="${acc.id}">${label}</option>`;
             });
 
             if (currentSelectedClient && accounts.some(a => a.id === currentSelectedClient && a.status === 'Ativa')) {
@@ -471,6 +540,7 @@
             accTbody.innerHTML = accounts.map(acc => `
                 <tr>
                     <td><strong>${acc.id}</strong></td>
+                    <td><span class="badge ${acc.type === 'Poupança' ? 'badge-poupanca' : 'badge-corrente'}">${acc.type}</span></td>
                     <td>${acc.name}</td>
                     <td>${formatBRL(acc.balance)}</td>
                     <td><span class="badge ${acc.status === 'Ativa' ? 'badge-active' : 'badge-closed'}">${acc.status}</span></td>
@@ -486,13 +556,15 @@
 
             if (role === 'admin') {
                 const totalCustody = accounts.reduce((sum, a) => sum + a.balance, 0);
+                const savingsTotal = accounts.filter(a => a.type === 'Poupança').reduce((sum, a) => sum + a.balance, 0);
                 const activeCount = accounts.filter(a => a.status === 'Ativa').length;
+
                 kpiBox.innerHTML = `
                     <div class="card"><h3>Total sob Custódia</h3><div class="value">${formatBRL(totalCustody)}</div></div>
+                    <div class="card"><h3>Total em Poupança</h3><div class="value" style="color:var(--success);">${formatBRL(savingsTotal)}</div></div>
                     <div class="card"><h3>Contas Ativas</h3><div class="value">${activeCount}</div></div>
-                    <div class="card"><h3>Cartões Emitidos</h3><div class="value">${accounts.length}</div></div>
                 `;
-                const allTx = accounts.flatMap(a => a.transactions.map(t => ({...t, acc: a.id}))).slice(0, 6);
+                const allTx = accounts.flatMap(a => a.transactions.map(t => ({...t, acc: `${a.id} (${a.type})`}))).slice(0, 6);
                 txTable.innerHTML = allTx.map(t => `
                     <tr><td>${t.date}</td><td>${t.acc}</td><td>${t.type}</td><td style="color:${t.amount >= 0 ? 'var(--success)' : 'var(--danger)'}; font-weight:bold;">${formatBRL(t.amount)}</td></tr>
                 `).join('');
@@ -500,12 +572,15 @@
                 const activeAcc = accounts.find(a => a.id === clientSelect.value);
                 if (activeAcc) {
                     kpiBox.innerHTML = `
-                        <div class="card"><h3>Meu Saldo Atual</h3><div class="value">${formatBRL(activeAcc.balance)}</div></div>
+                        <div class="card"><h3>Meu Saldo (${activeAcc.type})</h3><div class="value">${formatBRL(activeAcc.balance)}</div></div>
                         <div class="card"><h3>Número da Conta</h3><div class="value">${activeAcc.id}</div></div>
-                        <div class="card"><h3>Status da Conta</h3><div class="value" style="color:var(--success);">${activeAcc.status}</div></div>
+                        <div class="card"><h3>Modalidade</h3><div class="value" style="color:${activeAcc.type === 'Poupança' ? 'var(--success)' : 'var(--accent)'};">${activeAcc.type}</div></div>
                     `;
                     document.getElementById('clientBalanceDisplay').textContent = formatBRL(activeAcc.balance);
-                    document.getElementById('clientAccountInfo').textContent = `Titular: ${activeAcc.name} | Conta: ${activeAcc.id}`;
+                    document.getElementById('clientAccountInfo').textContent = `Titular: ${activeAcc.name} | Conta ${activeAcc.type}: ${activeAcc.id}`;
+
+                    // Exibe botão de rendimento apenas para Conta Poupança
+                    document.getElementById('yieldBtn').style.display = activeAcc.type === 'Poupança' ? 'block' : 'none';
 
                     const rows = activeAcc.transactions.map(t => `
                         <tr><td>${t.date}</td><td>${t.type}</td><td>${t.desc}</td><td style="color:${t.amount >= 0 ? 'var(--success)' : 'var(--danger)'}; font-weight:bold;">${formatBRL(t.amount)}</td></tr>
